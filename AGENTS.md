@@ -31,6 +31,9 @@ Never run Python-related commands directly in this repository.
 - If `CODEX_CONDA_ENV` is missing, invalid, or cannot be activated, stop and report the exact issue
 - If `ISAACLAB_PATH` is missing or invalid, stop and report the exact issue
 - Never guess or auto-fill machine-specific values for the user
+- Strictly forbid using `git worktree` for this repository
+- Do not create, use, or suggest worktree-based workflows here
+- Reason: this repository is developed via `pip install -e` inside a conda environment, so changing the checkout path breaks or conflicts with the editable install target
 
 ## Configuration & Assets
 Pull large assets with `git lfs pull` after cloning. Avoid committing generated files from `logs/`, `outputs/`, or `temp/` unless the change explicitly updates tracked sample data or documentation.
