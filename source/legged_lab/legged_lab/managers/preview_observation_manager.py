@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import torch
 
 from isaaclab.managers import ObservationManager
@@ -10,9 +12,14 @@ from isaaclab.utils.buffers import CircularBuffer
 class PreviewObservationManager(ObservationManager):
     """Observation manager with a non-mutating preview API for group observations."""
 
-    def preview(self) -> dict[str, torch.Tensor | dict[str, torch.Tensor]]:
+    def preview(
+        self, group_names: Iterable[str] | None = None
+    ) -> dict[str, torch.Tensor | dict[str, torch.Tensor]]:
+        if group_names is None:
+            group_names = self._group_obs_term_names
+
         preview_buffer = {}
-        for group_name in self._group_obs_term_names:
+        for group_name in group_names:
             preview_buffer[group_name] = self.preview_group(group_name)
         return preview_buffer
 

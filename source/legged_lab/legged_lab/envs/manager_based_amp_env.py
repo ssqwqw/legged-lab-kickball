@@ -52,6 +52,24 @@ class ManagerBasedAmpEnv(ManagerBasedAnimationEnv):
                 terminal_obs[key] = value
         return terminal_obs
 
+    def _preview_terminal_obs(self) -> dict[str, torch.Tensor | dict[str, torch.Tensor]] | None:
+        """Preview only the configured terminal observation groups before reset."""
+        group_names = tuple(getattr(self.cfg, "terminal_obs_groups", ("disc",)))
+        if not group_names:
+            return None
+
+        if hasattr(self.observation_manager, "preview_group"):
+            preview_obs = {}
+            for group_name in group_names:
+                preview_obs[group_name] = self.observation_manager.preview_group(group_name)
+            return preview_obs
+
+        if hasattr(self.observation_manager, "preview"):
+            preview_obs = self.observation_manager.preview()
+            return {group_name: preview_obs[group_name] for group_name in group_names}
+
+        return None
+
     def load_managers(self):
         """Load AMP-specific managers while swapping in the local preview observation manager."""
         self.motion_data_manager = MotionDataManager(self.cfg.motion_data, self)
@@ -141,9 +159,9 @@ class ManagerBasedAmpEnv(ManagerBasedAnimationEnv):
             self.recorder_manager.record_post_step()
 
         reset_env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
-        terminal_obs = None
-        if len(reset_env_ids) > 0 and hasattr(self.observation_manager, "preview"):
-            terminal_obs = self.observation_manager.preview()
+        terminal_obs_preview = None
+        if len(reset_env_ids) > 0:
+            terminal_obs_preview = self._preview_terminal_obs()
 
         # -- reset envs that terminated/timed-out and log the episode information
         if len(reset_env_ids) > 0:
@@ -170,8 +188,17 @@ class ManagerBasedAmpEnv(ManagerBasedAnimationEnv):
         # -- compute observations
         # note: done after reset to get the correct observations for reset envs
         self.obs_buf = self.observation_manager.compute(update_history=True)
+        terminal_obs = None
+        if terminal_obs_preview is not None:
+            for group_name in terminal_obs_preview:
+                if group_name not in self.obs_buf:
+                    raise KeyError(
+                        f"Configured terminal observation group '{group_name}' is not present in current observations."
+                    )
+            current_terminal_groups = {group_name: self.obs_buf[group_name] for group_name in terminal_obs_preview}
+            terminal_obs = self._merge_terminal_obs(current_terminal_groups, terminal_obs_preview, reset_env_ids)
         if terminal_obs is not None:
-            self.extras["terminal_obs"] = self._merge_terminal_obs(self.obs_buf, terminal_obs, reset_env_ids)
+            self.extras["terminal_obs"] = terminal_obs
         else:
             self.extras.pop("terminal_obs", None)
         
