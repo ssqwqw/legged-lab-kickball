@@ -26,7 +26,10 @@ Output Legged Lab Format:
 
 import enum
 import numpy as np
+import numpy.core as np_core
+import numpy.core.multiarray as np_multiarray
 import pickle
+import sys
 import torch
 
 import isaaclab.sim as sim_utils
@@ -43,6 +46,15 @@ class LoopMode(enum.Enum):
     WRAP = 1
 
 
+def _load_legacy_gmr_pickle(gmr_file_path: str):
+    # Older GMR pickles may reference historical numpy module paths.
+    sys.modules.setdefault("numpy._core", np_core)
+    sys.modules.setdefault("numpy._core.multiarray", np_multiarray)
+
+    with open(gmr_file_path, "rb") as f:
+        return pickle.load(f)
+
+
 def extract_gmr_data(
     gmr_file_path: str,
     gmr_dof_names: list[str],
@@ -51,8 +63,7 @@ def extract_gmr_data(
     start_frame: int = 0,
     end_frame: int = -1,
 ):
-    with open(gmr_file_path, "rb") as f:
-        gmr_data = pickle.load(f)
+    gmr_data = _load_legacy_gmr_pickle(gmr_file_path)
 
     # Extract data from GMR format
     fps = gmr_data["fps"]

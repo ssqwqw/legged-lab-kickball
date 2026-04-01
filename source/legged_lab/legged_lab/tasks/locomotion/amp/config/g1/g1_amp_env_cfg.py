@@ -113,7 +113,7 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
         # motion data
         # ------------------------------------------------------
         self.motion_data.motion_dataset.motion_data_dir = os.path.join(
-            LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "amp", "walk_and_run"
+            LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "AMPdataset"
         )
         self.motion_data.motion_dataset.motion_data_weights = {
             # "B10_-__Walk_turn_left_45_stageii": 1.0,
@@ -132,7 +132,8 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
             # "C15_-_run_turn_right_45_stageii": 1.0,
             # "C16_-_run_turn_right_135_stageii": 1.0,
             # "C17_-_run_change_direction_stageii": 1.0,
-            "C1_-_stand_to_run_stageii": 1.0,
+            "football": 1.0,
+            "myfootball": 0.8,
             # "C3_-_run_stageii": 1.0,
             # "C4_-_run_to_walk_a_stageii": 1.0,
             # "C5_-_walk_to_run_stageii": 1.0,

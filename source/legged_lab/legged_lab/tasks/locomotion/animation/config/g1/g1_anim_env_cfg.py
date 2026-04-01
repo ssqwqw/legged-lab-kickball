@@ -26,10 +26,10 @@ class G1AnimEnvCfg(AnimationEnvCfg):
         )
 
         self.motion_data.motion_dataset.motion_data_dir = os.path.join(
-            LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "amp", "walk_and_run"
+            LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "AMPdataset"
         )
         self.motion_data.motion_dataset.motion_data_weights = {
-            "C1_-_stand_to_run_stageii": 1.0,
+            "football": 1.0,
             # "C14_-_run_turn_right_90_stageii": 1.0,
             # "C26_-_run_to_crouch_stageii": 1.0,
             # "E5_-__hook_left_stageii": 1.0,
