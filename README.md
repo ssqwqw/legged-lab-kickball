@@ -1,5 +1,7 @@
 # 🤖 Legged Lab
 
+English | [简体中文](README.zh-CN.md)
+
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-5.1.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html)
 [![Isaac Lab](https://img.shields.io/badge/IsaacLab-2.3.1-silver)](https://isaac-sim.github.io/IsaacLab/v2.3.1/index.html)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://docs.python.org/3/whatsnew/3.11.html)
@@ -244,6 +246,17 @@ python scripts/rsl_rl/play.py --task LeggedLab-Isaac-AMP-G1-v0 --headless --num_
 ```
 
 The video will be saved in the `logs/rsl_rl/experiment_name/run_name/videos/play` directory.
+
+## Notes for This Repository
+
+- For Python commands in this repository, use the environment wrapper:
+
+```bash
+bash .codex/run-in-env.sh <your python command>
+```
+
+- Training artifacts are generated under `logs/`, `outputs/`, and `temp/` and are ignored by default.
+- Do not commit trained weights (for example, `model_*.pt`).
 
 </details>
 

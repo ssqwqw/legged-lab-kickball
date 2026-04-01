@@ -29,6 +29,10 @@
 docker/artifacts/
 docker/.cache/
 *.tmp
+**/model_*.pt
+**/checkpoint*.pt
+**/*.onnx
+**/exported/*
 
 # Isaac-Sim packman
 _isaac_sim*

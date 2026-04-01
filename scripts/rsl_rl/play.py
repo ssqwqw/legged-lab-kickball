@@ -54,9 +54,11 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 import gymnasium as gym
+import importlib.metadata as metadata
 import os
 import time
 import torch
+from packaging import version
 
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
@@ -70,8 +72,9 @@ from isaaclab.envs import (
 )
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.dict import print_dict
-from isaaclab.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
+# from isaaclab.utils.pretrained_checkpoint import get_published_pretrained_checkpoint  # Not available in this Isaac Lab version
 from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper, export_policy_as_jit, export_policy_as_onnx
+from isaaclab_rl.rsl_rl.utils import handle_deprecated_rsl_rl_cfg
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
@@ -79,6 +82,33 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 import legged_lab.tasks  # noqa: F401
 
 # PLACEHOLDER: Extension template (do not remove this comment)
+
+
+def cleanup_agent_cfg_for_rsl_rl_v3(agent_cfg: RslRlBaseRunnerCfg) -> RslRlBaseRunnerCfg:
+    """Clean up agent configuration for rsl-rl v3.x compatibility.
+    
+    This function removes parameters that are only supported in newer versions of rsl-rl.
+    For rsl-rl < 4.0.0, we need to remove parameters introduced in newer versions.
+    """
+    # Parameters not supported in rsl-rl 3.x
+    unsupported_params = {
+        "share_cnn_encoders",
+        "distribution_cfg",
+        "stochastic",
+        "init_noise_std",
+        "noise_std_type",
+        "state_dependent_std",
+    }
+    
+    # Clean algorithm config
+    if hasattr(agent_cfg, "algorithm") and agent_cfg.algorithm is not None:
+        alg_cfg_dict = agent_cfg.algorithm if isinstance(agent_cfg.algorithm, dict) else agent_cfg.algorithm.__dict__
+        for param in unsupported_params:
+            if param in alg_cfg_dict:
+                del alg_cfg_dict[param]
+                print(f"[WARNING]: Removed unsupported parameter '{param}' from algorithm config for rsl-rl v3.x compatibility.")
+    
+    return agent_cfg
 
 
 @hydra_task_config(args_cli.task, args_cli.agent)
@@ -102,10 +132,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     log_root_path = os.path.abspath(log_root_path)
     print(f"[INFO] Loading experiment from directory: {log_root_path}")
     if args_cli.use_pretrained_checkpoint:
-        resume_path = get_published_pretrained_checkpoint("rsl_rl", train_task_name)
-        if not resume_path:
-            print("[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task.")
-            return
+        # get_published_pretrained_checkpoint is not available in this Isaac Lab version
+        print("[WARNING] Pre-trained checkpoint loading is not supported in this Isaac Lab version.")
+        print("[INFO] Please use --checkpoint to specify a model path instead.")
+        return
     elif args_cli.checkpoint:
         resume_path = retrieve_file_path(args_cli.checkpoint)
     else:
@@ -137,6 +167,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # wrap around environment for rsl-rl
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+
+    # get rsl-rl version for compatibility handling
+    try:
+        installed_version = metadata.version("rsl-rl-lib")
+    except Exception:
+        installed_version = "3.2.0"
+    
+    # handle deprecated rsl-rl configurations
+    agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, installed_version)
+    agent_cfg = cleanup_agent_cfg_for_rsl_rl_v3(agent_cfg)
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model

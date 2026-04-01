@@ -37,7 +37,7 @@ class G1DeepMimicEnvCfg(DeepMimicEnvCfg):
             LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "deepmimic"
         )
         self.motion_data.motion_dataset.motion_data_weights = {
-            "G5_-__back_kick_stageii": 1.0,
+            "C11_-_run_turn_left_90_stageii": 1.0,
         }
 
         # -----------------------------------------------------

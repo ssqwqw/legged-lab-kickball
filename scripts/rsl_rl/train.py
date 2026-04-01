@@ -95,6 +95,7 @@ from isaaclab.envs import (
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
 from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper
+from isaaclab_rl.rsl_rl.utils import handle_deprecated_rsl_rl_cfg
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
@@ -105,6 +106,33 @@ import legged_lab.tasks  # noqa: F401
 logger = logging.getLogger(__name__)
 
 # PLACEHOLDER: Extension template (do not remove this comment)
+
+
+def cleanup_agent_cfg_for_rsl_rl_v3(agent_cfg: RslRlBaseRunnerCfg) -> RslRlBaseRunnerCfg:
+    """Clean up agent configuration for rsl-rl v3.x compatibility.
+    
+    This function removes parameters that are only supported in newer versions of rsl-rl.
+    For rsl-rl < 4.0.0, we need to remove parameters introduced in newer versions.
+    """
+    # Parameters not supported in rsl-rl 3.x
+    unsupported_params = {
+        "share_cnn_encoders",
+        "distribution_cfg",
+        "stochastic",
+        "init_noise_std",
+        "noise_std_type",
+        "state_dependent_std",
+    }
+    
+    # Clean algorithm config
+    if hasattr(agent_cfg, "algorithm") and agent_cfg.algorithm is not None:
+        alg_cfg_dict = agent_cfg.algorithm if isinstance(agent_cfg.algorithm, dict) else agent_cfg.algorithm.__dict__
+        for param in unsupported_params:
+            if param in alg_cfg_dict:
+                del alg_cfg_dict[param]
+                print(f"[WARNING]: Removed unsupported parameter '{param}' from algorithm config for rsl-rl v3.x compatibility.")
+    
+    return agent_cfg
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -193,6 +221,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # wrap around environment for rsl-rl
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+
+    # handle deprecated rsl-rl configurations
+    agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, installed_version)
+    agent_cfg = cleanup_agent_cfg_for_rsl_rl_v3(agent_cfg)
 
     # create runner from rsl-rl
     if agent_cfg.class_name == "OnPolicyRunner":
