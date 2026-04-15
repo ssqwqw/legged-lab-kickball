@@ -70,3 +70,31 @@ class G1RslRlOnPolicyRunnerAmpCfg(RslRlOnPolicyRunnerCfg):
             mirror_loss_coeff=0.1,
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Kickball Stage 2 runner — AMP style weight 0.8×  (scale 4.0 → 80% of 5.0)
+# task_style_lerp raised to 0.5 to give slightly more room for task reward
+# ---------------------------------------------------------------------------
+@configclass
+class G1RslRlAmpCfg_KickballS2(G1RslRlOnPolicyRunnerAmpCfg):
+    experiment_name = "g1_amp_kickball_s2"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.algorithm.amp_cfg.amp_discriminator.style_reward_scale = 4.0
+        self.algorithm.amp_cfg.amp_discriminator.task_style_lerp = 0.5
+
+
+# ---------------------------------------------------------------------------
+# Kickball Stage 3 runner — AMP style weight 0.6×  (scale 3.0 → 60% of 5.0)
+# RED LINE: do NOT go below style_reward_scale=3.0 or gait will collapse
+# ---------------------------------------------------------------------------
+@configclass
+class G1RslRlAmpCfg_KickballS3(G1RslRlOnPolicyRunnerAmpCfg):
+    experiment_name = "g1_amp_kickball_s3"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.algorithm.amp_cfg.amp_discriminator.style_reward_scale = 3.0
+        self.algorithm.amp_cfg.amp_discriminator.task_style_lerp = 0.6

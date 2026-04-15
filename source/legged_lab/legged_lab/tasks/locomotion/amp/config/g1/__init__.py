@@ -23,3 +23,24 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1RslRlOnPolicyRunnerAmpCfg",
     },
 )
+
+# ----- Kickball curriculum stages -----
+gym.register(
+    id="LeggedLab-Isaac-AMP-Kickball-S2-G1-v0",
+    entry_point="legged_lab.envs:ManagerBasedAmpEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_amp_env_cfg:G1AmpEnvCfg_KickballS2",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1RslRlAmpCfg_KickballS2",
+    },
+)
+
+gym.register(
+    id="LeggedLab-Isaac-AMP-Kickball-S3-G1-v0",
+    entry_point="legged_lab.envs:ManagerBasedAmpEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.g1_amp_env_cfg:G1AmpEnvCfg_KickballS3",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1RslRlAmpCfg_KickballS3",
+    },
+)

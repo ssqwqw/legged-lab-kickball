@@ -2,7 +2,8 @@ import math
 from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -50,6 +51,8 @@ class AmpSceneCfg(InteractiveSceneCfg):
     robot: ArticulationCfg = MISSING
     # robot animation (for reference)
     robot_anim: ArticulationCfg = None
+    # ball (optional, configured per-robot)
+    ball: RigidObjectCfg = None
     # sensors
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
     # lights
@@ -121,6 +124,16 @@ class ObservationsCfg:
             params=MISSING,
             noise=Unoise(n_min=-0.08, n_max=0.08),
         )
+        ball_pos_b = ObsTerm(
+            func=mdp.ball_pos_b,
+            params={"ball_cfg": SceneEntityCfg("ball"), "robot_cfg": SceneEntityCfg("robot")},
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
+        ball_vel_b = ObsTerm(
+            func=mdp.ball_vel_b,
+            params={"ball_cfg": SceneEntityCfg("ball"), "robot_cfg": SceneEntityCfg("robot")},
+            noise=Unoise(n_min=-0.1, n_max=0.1),
+        )
         # root_height = ObsTerm(func=mdp.base_pos_z)
 
         def __post_init__(self):
@@ -146,6 +159,14 @@ class ObservationsCfg:
         key_body_pos_b = ObsTerm(
             func=mdp.key_body_pos_b,
             params=MISSING,
+        )
+        ball_pos_b = ObsTerm(
+            func=mdp.ball_pos_b,
+            params={"ball_cfg": SceneEntityCfg("ball"), "robot_cfg": SceneEntityCfg("robot")},
+        )
+        ball_vel_b = ObsTerm(
+            func=mdp.ball_vel_b,
+            params={"ball_cfg": SceneEntityCfg("ball"), "robot_cfg": SceneEntityCfg("robot")},
         )
 
         def __post_init__(self):
@@ -328,7 +349,21 @@ class TerminationsCfg:
 class CurriculumCfg:
     """Curriculum terms for the MDP."""
 
-    pass
+    lin_vel_cmd_levels = CurrTerm(
+        func=mdp.lin_vel_cmd_levels,
+        params={
+            "reward_term_name": "track_lin_vel_xy_exp",
+            "lin_vel_x_limit": [-0.5, 3.0],
+            "lin_vel_y_limit": [-0.5, 0.5],
+        },
+    )
+    ang_vel_cmd_levels = CurrTerm(
+        func=mdp.ang_vel_cmd_levels,
+        params={
+            "reward_term_name": "track_ang_vel_z_exp",
+            "ang_vel_z_limit": [-1.0, 1.0],
+        },
+    )
 
 
 @configclass

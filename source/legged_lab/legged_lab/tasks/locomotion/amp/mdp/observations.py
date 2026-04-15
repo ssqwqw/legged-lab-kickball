@@ -4,7 +4,7 @@ import torch
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from isaaclab.assets import Articulation
+from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
@@ -12,6 +12,40 @@ if TYPE_CHECKING:
 
     from legged_lab.envs import ManagerBasedAnimationEnv
     from legged_lab.managers import AnimationTerm
+
+
+def ball_pos_b(
+    env: ManagerBasedEnv,
+    ball_cfg: SceneEntityCfg = SceneEntityCfg("ball"),
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Ball position in the robot body frame. Returns shape (num_envs, 3)."""
+    ball: RigidObject = env.scene[ball_cfg.name]
+    robot: Articulation = env.scene[robot_cfg.name]
+
+    ball_pos_w = ball.data.root_pos_w  # (num_envs, 3)
+    root_pos_w = robot.data.root_pos_w  # (num_envs, 3)
+    root_quat_w = robot.data.root_quat_w  # (num_envs, 4)
+
+    ball_pos_rel = ball_pos_w - root_pos_w  # (num_envs, 3)
+    ball_pos_body = math_utils.quat_apply_inverse(root_quat_w, ball_pos_rel)  # (num_envs, 3)
+    return ball_pos_body
+
+
+def ball_vel_b(
+    env: ManagerBasedEnv,
+    ball_cfg: SceneEntityCfg = SceneEntityCfg("ball"),
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Ball linear velocity in the robot body frame. Returns shape (num_envs, 3)."""
+    ball: RigidObject = env.scene[ball_cfg.name]
+    robot: Articulation = env.scene[robot_cfg.name]
+
+    ball_lin_vel_w = ball.data.root_lin_vel_w  # (num_envs, 3)
+    root_quat_w = robot.data.root_quat_w  # (num_envs, 4)
+
+    ball_vel_body = math_utils.quat_apply_inverse(root_quat_w, ball_lin_vel_w)  # (num_envs, 3)
+    return ball_vel_body
 
 
 def root_local_rot_tan_norm(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:

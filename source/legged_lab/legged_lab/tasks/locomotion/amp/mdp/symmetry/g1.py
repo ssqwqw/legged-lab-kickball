@@ -101,6 +101,8 @@ def _transform_policy_obs_left_right(env: ManagerBasedRLEnv, obs: torch.Tensor) 
     JOINT_VEL_DIM = joint_num
     LAST_ACTIONS_DIM = joint_num
     KEY_BODY_POS_DIM = key_body_num * 3
+    BALL_POS_DIM = 3
+    BALL_VEL_DIM = 3
 
     end_idx = 0
     # ang vel
@@ -138,6 +140,16 @@ def _transform_policy_obs_left_right(env: ManagerBasedRLEnv, obs: torch.Tensor) 
         start_idx = end_idx
         end_idx = start_idx + KEY_BODY_POS_DIM
         obs[:, start_idx:end_idx] = _switch_g1_29dof_key_body_pos_left_right(obs[:, start_idx:end_idx])
+    # ball pos (flip y-component for left-right symmetry)
+    for h in range(HISTORY_LEN):
+        start_idx = end_idx
+        end_idx = start_idx + BALL_POS_DIM
+        obs[:, start_idx:end_idx] = obs[:, start_idx:end_idx] * torch.tensor([1, -1, 1], device=device)
+    # ball vel (flip y-component for left-right symmetry)
+    for h in range(HISTORY_LEN):
+        start_idx = end_idx
+        end_idx = start_idx + BALL_VEL_DIM
+        obs[:, start_idx:end_idx] = obs[:, start_idx:end_idx] * torch.tensor([1, -1, 1], device=device)
 
     return obs
 

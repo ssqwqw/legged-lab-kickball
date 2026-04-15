@@ -1,6 +1,9 @@
 import math
 import os
 
+import isaaclab.sim as sim_utils
+from isaaclab.assets import RigidObjectCfg
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
@@ -25,6 +28,8 @@ KEY_BODY_NAMES = [
 ]  # if changed here and symmetry is enabled, remember to update amp.mdp.symmetry.g1 as well!
 ANIMATION_TERM_NAME = "animation"
 AMP_NUM_STEPS = 4
+BALL_RADIUS = 0.11
+BALL_MASS = 0.45
 
 
 @configclass
@@ -97,6 +102,60 @@ class G1AmpRewards:
 
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
 
+    # ------------------------------------------------------------------
+    # Kickball task rewards
+    # ------------------------------------------------------------------
+    # Stage 1 weights (ball at fixed 5 m front).
+    # Increase approach/kick weights in Stage 2-3 as the robot gains skill.
+
+    # r1  Approach: always-on exponential pull toward the ball
+    #     r = exp(-dist_xy / 2.0)   weight chosen so full reward ≈ 1.0 at d=0
+    approach_ball = RewTerm(
+        func=mdp.approach_ball_exp,
+        weight=1.0,
+        params={
+            "ball_cfg": SceneEntityCfg("ball"),
+            "robot_cfg": SceneEntityCfg("robot"),
+            "std": 2.0,
+        },
+    )
+
+    # r2  Foot-contact: light guidance for initial approach only
+    #     Lowered from 3.0 to prevent dribble-style reward exploitation
+    foot_to_ball = RewTerm(
+        func=mdp.foot_to_ball_proximity,
+        weight=0.5,
+        params={
+            "ball_cfg": SceneEntityCfg("ball"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "std": 0.25,
+        },
+    )
+
+    # r3  Kick success: ball speed — ONLY counted when ball is >0.5 m from robot
+    #     Dribbling at feet yields exactly 0.  Must kick ball away to score.
+    ball_kicked = RewTerm(
+        func=mdp.ball_kicked_reward,
+        weight=4.0,
+        params={
+            "ball_cfg": SceneEntityCfg("ball"),
+            "robot_cfg": SceneEntityCfg("robot"),
+            "min_separation": 0.5,
+            "max_speed": 5.0,
+        },
+    )
+
+    # r4  Linger penalty: ball stuck near feet → continuous negative reward
+    ball_linger = RewTerm(
+        func=mdp.ball_linger_penalty,
+        weight=-3.0,
+        params={
+            "ball_cfg": SceneEntityCfg("ball"),
+            "robot_cfg": SceneEntityCfg("robot"),
+            "threshold": 0.5,
+        },
+    )
+
 
 @configclass
 class G1AmpEnvCfg(LocomotionAmpEnvCfg):
@@ -110,10 +169,37 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
         self.scene.robot = UNITREE_G1_29DOF_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         # ------------------------------------------------------
+        # ball
+        # ------------------------------------------------------
+        self.scene.ball = RigidObjectCfg(
+            prim_path="{ENV_REGEX_NS}/Ball",
+            spawn=sim_utils.SphereCfg(
+                radius=BALL_RADIUS,
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                    disable_gravity=False,
+                    max_depenetration_velocity=1.0,
+                ),
+                mass_props=sim_utils.MassPropertiesCfg(mass=BALL_MASS),
+                collision_props=sim_utils.CollisionPropertiesCfg(),
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=(0.9, 0.9, 0.1),
+                ),
+                physics_material=sim_utils.RigidBodyMaterialCfg(
+                    static_friction=0.6,
+                    dynamic_friction=0.4,
+                    restitution=0.5,
+                ),
+            ),
+            init_state=RigidObjectCfg.InitialStateCfg(
+                pos=(1.0, 0.0, BALL_RADIUS),
+            ),
+        )
+
+        # ------------------------------------------------------
         # motion data
         # ------------------------------------------------------
         self.motion_data.motion_dataset.motion_data_dir = os.path.join(
-            LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "AMPdataset"
+            LEGGED_LAB_ROOT_DIR, "data", "MotionData", "g1_29dof", "fpstrans_resampled"
         )
         self.motion_data.motion_dataset.motion_data_weights = {
             # "B10_-__Walk_turn_left_45_stageii": 1.0,
@@ -132,11 +218,18 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
             # "C15_-_run_turn_right_45_stageii": 1.0,
             # "C16_-_run_turn_right_135_stageii": 1.0,
             # "C17_-_run_change_direction_stageii": 1.0,
-            "football": 1.0,
-            "myfootball": 0.8,
-            # "C3_-_run_stageii": 1.0,
-            # "C4_-_run_to_walk_a_stageii": 1.0,
-            # "C5_-_walk_to_run_stageii": 1.0,
+
+
+            "C1_-_stand_to_run_stageii": 1.0,
+            "C3_-_run_stageii": 1.0,
+            "B9_-__Walk_turn_left_90_stageii": 1.0,
+            "B11_-__Walk_turn_left_135_stageii": 1.0,
+            "B14_-__Walk_turn_right_45_t2_stageii": 1.0,
+            # "football": 0.8,
+            # "myfootball": 0.8,
+
+
+
             # "C6_-_stand_to_run_backwards_stageii": 1.0,
             # "C8_-_run_backwards_to_stand_stageii": 1.0,
             # "C9_-_run_backwards_turn_run_forward_stageii": 1.0,
@@ -192,6 +285,18 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
         self.events.add_base_mass.params["asset_cfg"].body_names = "torso_link"
         self.events.base_external_force_torque.params["asset_cfg"].body_names = ["torso_link"]
         self.events.reset_from_ref.params = {"animation": ANIMATION_TERM_NAME, "height_offset": 0.1}
+        self.events.reset_ball = EventTerm(
+            func=mdp.reset_ball,
+            mode="reset",
+            params={
+                "ball_cfg": SceneEntityCfg("ball"),
+                "robot_cfg": SceneEntityCfg("robot"),
+                # Stage 1: ball fixed at 5 m directly in front, no lateral offset
+                "forward_range": (5.0, 5.0),
+                "lateral_range": (0.0, 0.0),
+                "ball_radius": BALL_RADIUS,
+            },
+        )
 
         # ------------------------------------------------------
         # Rewards
@@ -200,16 +305,11 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
         # ------------------------------------------------------
         # Commands
         # ------------------------------------------------------
-        self.commands.base_velocity.ranges.lin_vel_x = (-0.5, 3.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
-        self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
+        # start narrow; curriculum will expand these up to the limits defined in CurriculumCfg
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.5)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.2)
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.3)
         self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
-
-        # ------------------------------------------------------
-        # Curriculum
-        # ------------------------------------------------------
-        self.curriculum.lin_vel_cmd_levels = None
-        self.curriculum.ang_vel_cmd_levels = None
 
         # ------------------------------------------------------
         # terminations
@@ -231,3 +331,51 @@ class G1AmpEnvCfg_PLAY(G1AmpEnvCfg):
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)
 
         self.events.reset_from_ref = None
+
+
+# ===========================================================================
+# Curriculum Stage 2 — small ball-position randomisation
+# Usage: resume Stage-1 checkpoint, train ~2000 more iterations
+#   --task LeggedLab-Isaac-AMP-Kickball-S2-G1-v0  --resume ...
+# AMP style_reward_scale should be lowered to ~4.0 in the runner cfg
+# ===========================================================================
+@configclass
+class G1AmpEnvCfg_KickballS2(G1AmpEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Increase kickball reward weights slightly
+        self.rewards.approach_ball.weight = 1.5
+        self.rewards.foot_to_ball.weight = 0.5
+        self.rewards.ball_kicked.weight = 5.0
+        self.rewards.ball_linger.weight = -4.0
+
+        # Expand ball reset range: ±0.5 m forward, ±0.2 m lateral
+        self.events.reset_ball.params["forward_range"] = (4.5, 5.5)
+        self.events.reset_ball.params["lateral_range"] = (-0.2, 0.2)
+
+
+# ===========================================================================
+# Curriculum Stage 3 — full randomisation + environment perturbation
+# Usage: resume Stage-2 checkpoint, train 1500+ more iterations
+#   --task LeggedLab-Isaac-AMP-Kickball-S3-G1-v0  --resume ...
+# AMP style_reward_scale should be no lower than 3.0 in the runner cfg
+# ===========================================================================
+@configclass
+class G1AmpEnvCfg_KickballS3(G1AmpEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Full-strength kickball rewards
+        self.rewards.approach_ball.weight = 1.5
+        self.rewards.foot_to_ball.weight = 0.5
+        self.rewards.ball_kicked.weight = 6.0
+        self.rewards.ball_linger.weight = -5.0
+
+        # Full ball-position randomisation: 4-6 m fwd, ±0.5 m lateral
+        self.events.reset_ball.params["forward_range"] = (4.0, 6.0)
+        self.events.reset_ball.params["lateral_range"] = (-0.5, 0.5)
+
+        # Randomise ground friction to improve generalisation
+        self.events.physics_material.params["static_friction_range"] = (0.5, 1.2)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.4, 1.2)
