@@ -45,12 +45,12 @@ class G1AmpRewards:
     )
 
     # -- penalties
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-1.0)
-    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.2)
-    ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-2.0)
+    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.5)
+    ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.2)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-2.0e-6)
     dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-1.0e-7)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.005)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
     dof_pos_limits = RewTerm(
         func=mdp.joint_pos_limits,
         weight=-1.0,
@@ -59,7 +59,7 @@ class G1AmpRewards:
 
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.3,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
     joint_deviation_arms = RewTerm(
@@ -101,6 +101,17 @@ class G1AmpRewards:
     )
 
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+
+    # -- stand-still stability: penalise joint deviation when command is near zero
+    stand_still_penalty = RewTerm(
+        func=mdp.stand_still_joint_deviation_l1,
+        weight=-0.2,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
+    )
 
     # ------------------------------------------------------------------
     # Kickball task rewards
@@ -220,18 +231,21 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
             # "C17_-_run_change_direction_stageii": 1.0,
 
 
-            "C1_-_stand_to_run_stageii": 1.0,
+            # "C1_-_stand_to_run_stageii": 1.0,
             "C3_-_run_stageii": 1.0,
-            "B9_-__Walk_turn_left_90_stageii": 1.0,
-            "B11_-__Walk_turn_left_135_stageii": 1.0,
-            "B14_-__Walk_turn_right_45_t2_stageii": 1.0,
+            "C1_-_stand_to_run_stageii": 0.6,
+            "C8_-_run_backwards_to_stand_stageii": 0.4,
+            # "B9_-__Walk_turn_left_90_stageii": 1.0,
+            # "B11_-__Walk_turn_left_135_stageii": 1.0,
+            # "B14_-__Walk_turn_right_45_t2_stageii": 1.0,
             # "football": 0.8,
             # "myfootball": 0.8,
 
 
-
+            # "C4_-_run_to_walk_a_stageii": 1.0,
+            # "C5_-_walk_to_run_stageii": 1.0,
             # "C6_-_stand_to_run_backwards_stageii": 1.0,
-            # "C8_-_run_backwards_to_stand_stageii": 1.0,
+            # "C8_-_run_backwards_to_stand_stageii": 0.4,
             # "C9_-_run_backwards_turn_run_forward_stageii": 1.0,
             # "Walk_B10_-_Walk_turn_left_45_stageii": 1.0,
             # "Walk_B13_-_Walk_turn_right_45_stageii": 1.0,
@@ -307,8 +321,8 @@ class G1AmpEnvCfg(LocomotionAmpEnvCfg):
         # ------------------------------------------------------
         # start narrow; curriculum will expand these up to the limits defined in CurriculumCfg
         self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.5)
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.2)
-        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.3)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
         self.commands.base_velocity.ranges.heading = (-math.pi, math.pi)
 
         # ------------------------------------------------------
